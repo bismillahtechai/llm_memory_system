@@ -1,0 +1,45 @@
+/**
+ * TypingMind Memory System Extension - Manifest
+ * 
+ * This manifest file defines the browser extension properties
+ * for the TypingMind Memory System Extension.
+ */
+
+{
+  "manifest_version": 3,
+  "name": "TypingMind Memory System",
+  "version": "1.0.0",
+  "description": "Adds persistent memory capabilities to TypingMind",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": [
+    "storage",
+    "webRequest"
+  ],
+  "host_permissions": [
+    "*://*.typingmind.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["*://*.typingmind.com/*"],
+      "js": ["memory_system_extension.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["icons/*"],
+      "matches": ["*://*.typingmind.com/*"]
+    }
+  ],
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": false
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}

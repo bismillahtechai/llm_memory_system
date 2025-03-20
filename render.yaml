@@ -1,0 +1,102 @@
+services:
+  # Vector database service
+  - type: web
+    name: weaviate
+    runtime: docker
+    dockerfilePath: ./weaviate/Dockerfile
+    dockerContext: .
+    envVars:
+      - key: QUERY_DEFAULTS_LIMIT
+        value: 25
+      - key: AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED
+        value: "true"
+      - key: PERSISTENCE_DATA_PATH
+        value: /var/lib/weaviate
+      - key: DEFAULT_VECTORIZER_MODULE
+        value: none
+      - key: ENABLE_MODULES
+        value: ""
+      - key: CLUSTER_HOSTNAME
+        value: node1
+    disk:
+      name: weaviate-data
+      mountPath: /var/lib/weaviate
+      sizeGB: 50
+
+  # RAG API service
+  - type: web
+    name: rag-api
+    runtime: docker
+    dockerfilePath: ./rag_component/docker/Dockerfile
+    dockerContext: .
+    envVars:
+      - key: WEAVIATE_URL
+        sync: false
+      - key: EMBEDDING_MODEL
+        value: all-MiniLM-L6-v2
+    disk:
+      name: rag-data
+      mountPath: /app/data
+      sizeGB: 20
+
+  # Mem0 API service
+  - type: web
+    name: mem0-api
+    runtime: docker
+    dockerfilePath: ./mem0_component/docker/Dockerfile
+    dockerContext: .
+    envVars:
+      - key: STORAGE_PATH
+        value: /app/data/memories.json
+      - key: MAX_MEMORIES
+        value: 1000
+    disk:
+      name: mem0-data
+      mountPath: /app/data
+      sizeGB: 10
+
+  # Context Management API service
+  - type: web
+    name: context-api
+    runtime: docker
+    dockerfilePath: ./context_management/docker/Dockerfile
+    dockerContext: .
+    envVars:
+      - key: RAG_API_URL
+        sync: false
+      - key: MEM0_API_URL
+        sync: false
+      - key: TOKEN_BUDGET
+        value: 1000
+      - key: RAG_WEIGHT
+        value: 0.7
+      - key: MEM0_WEIGHT
+        value: 0.3
+      - key: MAX_RAG_RESULTS
+        value: 5
+      - key: MAX_MEM0_RESULTS
+        value: 5
+      - key: MEMORY_TYPES
+        value: preference,insight,personal_info
+
+  # Memory Maintenance service
+  - type: worker
+    name: maintenance
+    runtime: docker
+    dockerfilePath: ./maintenance/Dockerfile
+    dockerContext: .
+    envVars:
+      - key: RAG_API_URL
+        sync: false
+      - key: MEM0_API_URL
+        sync: false
+      - key: CONTEXT_API_URL
+        sync: false
+      - key: MAINTENANCE_INTERVAL
+        value: 24
+      - key: MEMORY_AGE_THRESHOLD
+        value: 30
+      - key: CONSOLIDATION_THRESHOLD
+        value: 10
+      - key: IMPORTANCE_THRESHOLD
+        value: 0.3 

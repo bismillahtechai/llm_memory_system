@@ -1,0 +1,96 @@
+"""
+Docker Compose configuration for the complete LLM memory system.
+
+This file provides a unified Docker Compose configuration for all components
+of the LLM memory system, including RAG, Mem0, context management, and maintenance.
+"""
+
+version: '3.4'
+
+services:
+  # Vector database
+  weaviate:
+    image: semitechnologies/weaviate:1.19.6
+    ports:
+      - "8080:8080"
+    restart: on-failure:0
+    environment:
+      QUERY_DEFAULTS_LIMIT: 25
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
+      PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
+      DEFAULT_VECTORIZER_MODULE: 'none'
+      ENABLE_MODULES: ''
+      CLUSTER_HOSTNAME: 'node1'
+    volumes:
+      - weaviate_data:/var/lib/weaviate
+
+  # RAG component
+  rag-api:
+    build:
+      context: ./rag_component/docker
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    depends_on:
+      - weaviate
+    environment:
+      - WEAVIATE_URL=http://weaviate:8080
+      - EMBEDDING_MODEL=all-MiniLM-L6-v2
+    volumes:
+      - rag_data:/app/data
+
+  # Mem0 component
+  mem0-api:
+    build:
+      context: ./mem0_component/docker
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      - STORAGE_PATH=/app/data/memories.json
+      - MAX_MEMORIES=1000
+    volumes:
+      - mem0_data:/app/data
+
+  # Context management component
+  context-api:
+    build:
+      context: ./context_management/docker
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8002"
+    depends_on:
+      - rag-api
+      - mem0-api
+    environment:
+      - RAG_API_URL=http://rag-api:8000
+      - MEM0_API_URL=http://mem0-api:8001
+      - TOKEN_BUDGET=1000
+      - RAG_WEIGHT=0.7
+      - MEM0_WEIGHT=0.3
+      - MAX_RAG_RESULTS=5
+      - MAX_MEM0_RESULTS=5
+      - MEMORY_TYPES=preference,insight,personal_info
+
+  # Memory maintenance
+  maintenance:
+    build:
+      context: ./maintenance
+      dockerfile: Dockerfile
+    depends_on:
+      - rag-api
+      - mem0-api
+      - context-api
+    environment:
+      - RAG_API_URL=http://rag-api:8000
+      - MEM0_API_URL=http://mem0-api:8001
+      - CONTEXT_API_URL=http://context-api:8002
+      - MAINTENANCE_INTERVAL=24
+      - MEMORY_AGE_THRESHOLD=30
+      - CONSOLIDATION_THRESHOLD=10
+      - IMPORTANCE_THRESHOLD=0.3
+
+volumes:
+  weaviate_data:
+  rag_data:
+  mem0_data:
