@@ -1,3 +1,29 @@
+envVarGroups:
+  - name: memory-system-env
+    envVars:
+      - key: EMBEDDING_MODEL
+        value: all-MiniLM-L6-v2
+      - key: TOKEN_BUDGET
+        value: 1000
+      - key: RAG_WEIGHT
+        value: 0.7
+      - key: MEM0_WEIGHT
+        value: 0.3
+      - key: MAX_RAG_RESULTS
+        value: 5
+      - key: MAX_MEM0_RESULTS
+        value: 5
+      - key: MEMORY_TYPES
+        value: preference,insight,personal_info
+      - key: MAINTENANCE_INTERVAL
+        value: 24
+      - key: MEMORY_AGE_THRESHOLD
+        value: 30
+      - key: CONSOLIDATION_THRESHOLD
+        value: 10
+      - key: IMPORTANCE_THRESHOLD
+        value: 0.3
+
 services:
   # Vector database service
   - type: web
@@ -21,7 +47,7 @@ services:
     disk:
       name: weaviate-data
       mountPath: /var/lib/weaviate
-      sizeGB: 50
+      sizeGB: 10
 
   # RAG API service
   - type: web
@@ -31,13 +57,17 @@ services:
     dockerContext: .
     envVars:
       - key: WEAVIATE_URL
-        sync: false
+        fromService:
+          name: weaviate
+          type: web
+          property: host
+          envVarName: WEAVIATE_HOST
       - key: EMBEDDING_MODEL
-        value: all-MiniLM-L6-v2
+        fromGroup: memory-system-env
     disk:
       name: rag-data
       mountPath: /app/data
-      sizeGB: 20
+      sizeGB: 5
 
   # Mem0 API service
   - type: web
@@ -53,7 +83,7 @@ services:
     disk:
       name: mem0-data
       mountPath: /app/data
-      sizeGB: 10
+      sizeGB: 2
 
   # Context Management API service
   - type: web
@@ -63,21 +93,27 @@ services:
     dockerContext: .
     envVars:
       - key: RAG_API_URL
-        sync: false
+        fromService:
+          name: rag-api
+          type: web
+          property: url
       - key: MEM0_API_URL
-        sync: false
+        fromService:
+          name: mem0-api
+          type: web
+          property: url
       - key: TOKEN_BUDGET
-        value: 1000
+        fromGroup: memory-system-env
       - key: RAG_WEIGHT
-        value: 0.7
+        fromGroup: memory-system-env
       - key: MEM0_WEIGHT
-        value: 0.3
+        fromGroup: memory-system-env
       - key: MAX_RAG_RESULTS
-        value: 5
+        fromGroup: memory-system-env
       - key: MAX_MEM0_RESULTS
-        value: 5
+        fromGroup: memory-system-env
       - key: MEMORY_TYPES
-        value: preference,insight,personal_info
+        fromGroup: memory-system-env
 
   # Memory Maintenance service
   - type: worker
@@ -87,16 +123,25 @@ services:
     dockerContext: .
     envVars:
       - key: RAG_API_URL
-        sync: false
+        fromService:
+          name: rag-api
+          type: web
+          property: url
       - key: MEM0_API_URL
-        sync: false
+        fromService:
+          name: mem0-api
+          type: web
+          property: url
       - key: CONTEXT_API_URL
-        sync: false
+        fromService:
+          name: context-api
+          type: web
+          property: url
       - key: MAINTENANCE_INTERVAL
-        value: 24
+        fromGroup: memory-system-env
       - key: MEMORY_AGE_THRESHOLD
-        value: 30
+        fromGroup: memory-system-env
       - key: CONSOLIDATION_THRESHOLD
-        value: 10
+        fromGroup: memory-system-env
       - key: IMPORTANCE_THRESHOLD
-        value: 0.3 
+        fromGroup: memory-system-env 
